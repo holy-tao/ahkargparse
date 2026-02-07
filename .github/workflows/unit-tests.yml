@@ -30,6 +30,13 @@ jobs:
         with:
           version: ${{ matrix.version }}
 
+      - name: Install Extensions Library
+        uses: actions/checkout@v6
+        with:
+          repository: holy-tao/AhkExtensions
+          path: tests\Lib\Extensions
+          submodules: false
+
       - name: Run Unit Tests
         working-directory: tests
         shell: powershell
