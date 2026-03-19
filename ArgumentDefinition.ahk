@@ -1,48 +1,29 @@
 #Requires AutoHotkey v2.0
 
+#Include <Extensions\Errors\ErrorExtensions>
+
 /**
  * Helper class to store argument definition configuration
  * @private
  */
 class ArgumentDefinition {
-    name := ""              ; destination property name
-    shortName := ""         ; single char: "v"
-    longName := ""          ; word: "verbose"
-    type := "String"        ; String, Integer, Float
-    choices := []           ; valid values (empty = any)
-    validator := ""         ; custom validation function
-    envVar := ""            ; environment variable name
-    defaultValue := ""      ; default value
-    required := true        ; required flag
-    action := "store"       ; store, store_true, append
     helpText := ""          ; help description
-    argType := ""           ; option, flag, positional
 
     __New(name, argType, config := {}) {
         this.name := name
         this.argType := argType
 
         ; Set properties from config
-        if config.HasOwnProp("short")
-            this.shortName := config.short
-        if config.HasOwnProp("long")
-            this.longName := config.long
-        if config.HasOwnProp("type")
-            this.type := config.type
-        if config.HasOwnProp("choices")
-            this.choices := config.choices
-        if config.HasOwnProp("validator")
-            this.validator := config.validator
-        if config.HasOwnProp("envVar")
-            this.envVar := config.envVar
-        if config.HasOwnProp("default")
-            this.defaultValue := config.default
-        if config.HasOwnProp("required")
-            this.required := config.required
-        if config.HasOwnProp("action")
-            this.action := config.action
-        if config.HasOwnProp("help")
-            this.helpText := config.help
+        this.shortName := config.HasOwnProp("short") ? config.short : ""
+        this.longName := config.HasOwnProp("long") ? config.long : ""
+        this.type := config.HasOwnProp("type") ? config.type : "String"
+        this.choices := config.HasOwnProp("choices") ? config.choices : []
+        this.validator := config.HasOwnProp("validator") ? config.validator : ""
+        this.envVar := config.HasOwnProp("envVar") ? config.envVar : ""
+        this.defaultValue := config.HasOwnProp("default") ? config.default : ""
+        this.required := config.HasOwnProp("required") ? config.required : true
+        this.action := config.HasOwnProp("action") ? config.action : "store"
+        this.helpText := config.HasOwnProp("help") ? config.help : ""
     }
    
     /**
@@ -61,8 +42,7 @@ class ArgumentDefinition {
             this._ValidateChoices(convertedValue)
 
         ; Step 3: Custom validation
-        if HasMethod(this.validator)
-            convertedValue := this._ValidateCustom(convertedValue)
+        convertedValue := this.validator ? this._ValidateCustom(convertedValue) : convertedValue
 
         return convertedValue
     }
@@ -75,38 +55,19 @@ class ArgumentDefinition {
      * @throws {TypeError} If conversion fails
      */
     _ConvertType(value) {
-        ; String type - return as-is
-        if (this.type == "String")
-            return value
-
-        ; Integer type
-        if (this.type == "Integer") {
-            try {
-                return Integer(value)
-            }
-            catch Error as cause{
-                optionStr := this._GetOptionString()
-                err := TypeError(optionStr " expects type Integer, but got '" value "'", -4, value)
-                err.Inner := cause
-                throw err
-            }
-        }
-
-        ; Float type
-        if this.type == "Float" {
-            try {
+        switch this.type {
+            ; String type - return as-is
+            case "String":
+                return value
+            case "Integer":
+                TypeError.ThrowIf(!IsInteger(value) , this._GetOptionString() " expects type Integer, but got '" value "'", -5)
+                 return Integer(value)
+            case "Float":
+                TypeError.ThrowIf(!IsFloat(value), this._GetOptionString() " expects type Float, but got '" value "'", -5)
                 return Float(value)
-            }
-            catch Error as cause{
-                optionStr := this._GetOptionString()
-                err := TypeError(optionStr " expects type Float, but got '" value "'", -4, value)
-                err.Inner := cause
-                throw err
-            }
+            default:
+                throw Error("Unknown argument definition type", , this.type)
         }
-
-        ; Unknown type - should not happen
-        return value
     }
 
     /**
@@ -132,8 +93,7 @@ class ArgumentDefinition {
                 choiceStrs.Push('"' choice '"')
 
             choiceList := ", ".Join(choiceStrs*)
-            optionStr := this._GetOptionString()
-            throw ValueError(optionStr " must be one of [" choiceList "], but got '" value "'", -4, value)
+            throw ValueError(this._GetOptionString() " must be one of [" choiceList "], but got '" value "'", -4, value)
         }
     }
 
@@ -150,8 +110,7 @@ class ArgumentDefinition {
         }
         catch Error as cause {
             ; Re-throw with better context if validator didn't provide good error
-            optionStr := this._GetOptionString()
-            err := ValueError(optionStr " failed validation: " cause.Message, -4, value)
+            err := ValueError(this._GetOptionString() " failed validation: " cause.Message, -4, value)
             err.Inner := cause
             throw err
         }

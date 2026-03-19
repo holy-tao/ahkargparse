@@ -24,17 +24,12 @@ class ArgumentParser {
      *   - strict: Throw error on unknown options (default: true)
      *   - exitOnError: Exit process on error (default: true)
      */
-    __New(config?) {
-        if IsSet(config) {
-            TypeError.ThrowIfNot(config, Object, -2)
+    __New(config := {}) {
+        TypeError.ThrowIfNot(config, Object, -2)
 
-            if config.HasOwnProp("description")
-                this._config.description := config.description
-            if config.HasOwnProp("strict")
-                this._config.strict := config.strict
-            if config.HasOwnProp("exitOnError")
-                this._config.exitOnError := config.exitOnError
-        }
+        (config.HasOwnProp("description") && this._config.description := config.description)
+        (config.HasOwnProp("strict") && this._config.strict := config.strict)
+        (config.HasOwnProp("exitOnError") && this._config.exitOnError := config.exitOnError)
     }
 
     /**
@@ -64,8 +59,7 @@ class ArgumentParser {
         ValueError.ThrowIf(this._definitions.Has(dest), "Duplicate argument destination: '" dest "'")
 
         ; Options are not required by default (can be overridden in config)
-        if (!config.HasOwnProp("required"))
-            config.required := false
+        (config.HasOwnProp("required") || config.required := false)
 
         ; Create and store definition
         definition := ArgumentDefinition(dest, "option", config)
@@ -96,15 +90,9 @@ class ArgumentParser {
         ValueError.ThrowIf(this._definitions.Has(dest),
             "Duplicate argument destination: '" dest "'", -2)
 
-        ; Set default action to store_true
-        if (!config.HasOwnProp("action"))
-            config.action := "store_true"
-
-        ; Flags are not required and default to false
-        if (!config.HasOwnProp("required"))
-            config.required := false
-        if (!config.HasOwnProp("default"))
-            config.default := false
+        (config.HasOwnProp("action") || config.action := "store_true")
+        (config.HasOwnProp("required") || config.required := false)
+        (config.HasOwnProp("default") || config.default := false)
 
         ; Create and store definition
         definition := ArgumentDefinition(dest, "flag", config)
@@ -127,10 +115,8 @@ class ArgumentParser {
     AddPositional(dest, config?) {
         TypeError.ThrowIfNot(dest, String, -2)
 
-        if !IsSet(config)
-            config := {}
-        else
-            TypeError.ThrowIfNot(config, Object, -2)
+        config := config ?? {}
+        TypeError.ThrowIfNot(config, Object, -2)
 
         ; Create and store definition
         definition := ArgumentDefinition(dest, "positional", config)
@@ -157,10 +143,7 @@ class ArgumentParser {
                 FileAppend("Error: " err.Message "`n", "*")
                 ExitApp(1)
             }
-            else {
-                ; Re-throw error
-                throw err
-            }
+            throw err
         }
     }
 
@@ -242,9 +225,8 @@ class ArgumentParser {
                     }
                 }
 
-                ; Find definition
-                if (definition == "")
-                    definition := this._FindDefinitionByLongName(optionName)
+                ; Find definition if not found already
+                definition := definition || this._FindDefinitionByLongName(optionName)
 
                 if (definition == "") {
                     ValueError.ThrowIf(this._config.strict, "Unknown option: --" optionName, -4)
@@ -252,8 +234,7 @@ class ArgumentParser {
                 }
 
                 ; Validate and store
-                validatedValue := definition.Validate(value)
-                this._StoreValue(result, definition, validatedValue)
+                this._StoreValue(result, definition, definition.Validate(value))
 
             ; Handle short options/flags: -n or -n=value or -n value
             }
@@ -300,9 +281,8 @@ class ArgumentParser {
                     }
                 }
 
-                ; Find definition
-                if (definition == "")
-                    definition := this._FindDefinitionByShortName(optionName)
+                ; Find definition if not found already
+                definition := definition || this._FindDefinitionByShortName(optionName)
 
                 if (definition == "") {
                     ValueError.ThrowIf(this._config.strict, "Unknown option: -" optionName, -4)
@@ -310,8 +290,7 @@ class ArgumentParser {
                 }
 
                 ; Validate and store
-                validatedValue := definition.Validate(value)
-                this._StoreValue(result, definition, validatedValue)
+                this._StoreValue(result, definition, definition.Validate(value))
 
             ; Handle positional arguments
             } else {
@@ -354,12 +333,8 @@ class ArgumentParser {
                 continue
 
             ; Parse key=value pairs
-            if (InStr(line, "=")) {
-                parts := StrSplit(line, "=", , 2)
-                key := Trim(parts[1])
-                value := Trim(parts[2])
-                this._configValues[key] := value
-            }
+            parts := StrSplit(line, "=", , 2)
+            this._configValues[Trim(parts[1])] := Trim(parts[2])
         }
 
         return this
@@ -373,8 +348,7 @@ class ArgumentParser {
         help := ""
 
         ; Add description if provided
-        if (this._config.description != "")
-            help .= this._config.description "`n`n"
+        (this._config.description && help .= this._config.description "`n`n")
 
         ; Build usage line
         help .= "Usage: " A_ScriptName " [OPTIONS]"
@@ -391,25 +365,13 @@ class ArgumentParser {
             help .= "`nPositional Arguments:`n"
 
             for (definition in this._positionals) {
-                line := "  " definition.name
+                line := ("  " definition.name).RPad(20)
 
-                ; Pad to align descriptions
-                line := line.RPad(20)
-
-                if (definition.helpText != "")
-                    line .= definition.helpText
-
-                ; Show type if not String
-                if (definition.type != "String")
-                    line .= " (type: " definition.type ")"
-
-                ; Show choices if defined
-                if (definition.choices.Length > 0) {
-                    choiceStrs := []
-                    for (choice in definition.choices)
-                        choiceStrs.Push('"' choice '"')
-                    line .= " (choices: " ", ".Join(choiceStrs*) ")"
-                }
+                line .= Format("{1}{2}{3}",
+                    IsSpace(definition.helpText) ? "" : definition.helpText,
+                    definition.type == "String" ? "" : " (type: " definition.type ")",
+                    definition.choices.Length == 0 ? "" : " (choices: " QuotedList(definition.choices) ")"
+                )
 
                 help .= line "`n"
             }
@@ -425,52 +387,34 @@ class ArgumentParser {
         for (dest, definition in this._definitions) {
             line := "  "
 
-            ; Add short and long names
-            if (definition.shortName != "") {
-                line .= "-" definition.shortName
-                if definition.longName != ""
-                    line .= ", "
-            }
-
-            if (definition.longName != "") {
-                line .= "--" definition.longName
-            }
+            names := []
+            (definition.shortName && names.Push("-" definition.shortName))
+            (definition.longName && names.Push("--" definition.longName))
+            line .= ", ".Join(names*)
 
             ; Add value placeholder for options (not flags)
-            if (definition.argType == "option")
-                line .= " <value>"
+            (definition.argType == "option" && line .= " <value>")
 
-            ; Pad to align descriptions
-            line := line.length >= 20 ? (line "`n" " ".Repeat(20)) : line.RPad(20)
-
-            ; Add help text
-            if (definition.helpText != "")
-                line .= definition.helpText
-
-            ; Show default value if defined
-            if (definition.defaultValue != "")
-                line .= " (default: " definition.defaultValue ")"
-
-            ; Show type if not String
-            if (definition.type != "String")
-                line .= " (type: " definition.type ")"
-
-            ; Show choices if defined
-            if (definition.choices.Length > 0) {
-                choiceStrs := []
-                for (choice in definition.choices)
-                    choiceStrs.Push('"' choice '"')
-                line .= " (choices: " ", ".Join(choiceStrs*) ")"
-            }
-
-            ; Show if repeatable (append action)
-            if (definition.action == "append")
-                line .= " (repeatable)"
+            line := Format("{1}{2}{3}{4}{5}",
+                line.length >= 20 ? (line "`n" " ".Repeat(20)) : line.RPad(20),
+                definition.helpText,
+                definition.defaultValue = "" ? "" : " (default: " definition.defaultValue ")",
+                definition.type = "String" ? "" : " (type: " definition.type ")",
+                definition.choices.Length == 0 ? "" : " (choices: " QuotedList(definition.choices) ")",
+                definition.action != "append" ? "" : " (repeatable)"
+            )
 
             help .= line "`n"
         }
 
         return help
+
+        QuotedList(strs) {
+            out := [], out.Length := strs.length
+            for(str in strs)
+                out[A_Index] := '"' str '"'
+            return ", ".Join(out*)
+        }
     }
 
     /**
@@ -512,8 +456,7 @@ class ArgumentParser {
         for (index, definition in this._positionals) {
             if (index <= positionalArgs.Length) {
                 ; Validate and store
-                value := positionalArgs[index]
-                validatedValue := definition.Validate(value)
+                validatedValue := definition.Validate(positionalArgs[index])
                 result[definition.name] := validatedValue
             }
             ; Missing required positionals will be handled in Phase 7
@@ -529,19 +472,16 @@ class ArgumentParser {
      */
     _StoreValue(result, definition, value) {
         ; Handle different action types
-        if (definition.action == "append") {
-            ; Append to array - create if doesn't exist
-            if !result.Has(definition.name)
-                result[definition.name] := []
-            result[definition.name].Push(value)
-        } 
-        else if (definition.action == "store_true") {
-            ; Store boolean value
-            result[definition.name] := value
-        } 
-        else {
-            ; Default "store" action - simple assignment
-            result[definition.name] := value
+        switch definition.action {
+            case "append":
+                ; Append to array - create if doesn't exist
+                if !result.Has(definition.name)
+                    result[definition.name] := []
+                result[definition.name].Push(value)
+            case "store_true":
+                result[definition.name] := value
+            default:
+                result[definition.name] := value
         }
     }
 
