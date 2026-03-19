@@ -7,6 +7,7 @@
 #Include ./YUnit/Stdout.ahk
 
 #Include ../ArgumentParser.ahk
+    #Include <Extensions\MapExtensions>
 
 class ArgumentParserTests {
 
@@ -164,8 +165,8 @@ class ArgumentParserTests {
 
             result := parser.Parse(["--count", "42"])
 
-            Assert.Equals(42, result.count)
-            Assert.IsType(result.count, Integer)
+            Assert.Equals(42, result["count"])
+            Assert.IsType(result["count"], Integer)
         }
 
         Parse_FloatOption_ConvertsToFloat() {
@@ -226,7 +227,7 @@ class ArgumentParserTests {
 
             result := parser.Parse(["--count", "5"])
 
-            Assert.Equals(5, result.count)
+            Assert.Equals(5, result["count"])
 
             CustomValidator(val) {
                 if(val <= 0)
@@ -466,8 +467,8 @@ class ArgumentParserTests {
 
             result := parser.Parse([])
 
-            Assert.Equals("config_output.txt", result.output)
-            Assert.Equals(42, result.count)
+            Assert.Equals("config_output.txt", result["output"])
+            Assert.Equals(42, result["count"])
 
             ; Cleanup
             FileDelete(configPath)
@@ -483,7 +484,7 @@ class ArgumentParserTests {
 
             result := parser.Parse([])
 
-            Assert.Equals("from_config.txt", result.output)
+            Assert.Equals("from_config.txt", result["output"])
 
             FileDelete(configPath)
         }
@@ -530,8 +531,8 @@ class ArgumentParserTests {
 
             result := parser.Parse([])
 
-            Assert.Equals(99, result.count)
-            Assert.IsType(result.count, Integer)
+            Assert.Equals(99, result["count"])
+            Assert.IsType(result["count"], Integer)
 
             FileDelete(configPath)
         }
@@ -664,10 +665,10 @@ class ArgumentParserTests {
 
             result := parser.Parse([])
 
-            Assert.Equals("out.txt", result.output)
-            Assert.Equals(10, result.count)
-            Assert.Equals("release", result.mode)
-            Assert.Equals(1, result.verbose)
+            Assert.Equals("out.txt", result["output"])
+            Assert.Equals(10, result["count"])
+            Assert.Equals("release", result["mode"])
+            Assert.Equals(1, result["verbose"])
 
             FileDelete(configPath)
         }

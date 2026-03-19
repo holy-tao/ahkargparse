@@ -183,7 +183,12 @@ class ArgumentParser {
         }
 
         ; Initialize result object
-        result := {}
+        result := Map()
+
+        ; __Get / __Set metafunctions allow .prop access
+        result.DefineProp("__Get", { Call: (self, name, params) => self[name] })
+        result.DefineProp("__Set", { Call: (self, name, params, value) => self[name] := value})
+        
         positionalArgs := []
 
         ; Parse command-line arguments
@@ -509,7 +514,7 @@ class ArgumentParser {
                 ; Validate and store
                 value := positionalArgs[index]
                 validatedValue := definition.Validate(value)
-                result.%definition.name% := validatedValue
+                result[definition.name] := validatedValue
             }
             ; Missing required positionals will be handled in Phase 7
         }
@@ -526,15 +531,17 @@ class ArgumentParser {
         ; Handle different action types
         if (definition.action == "append") {
             ; Append to array - create if doesn't exist
-            if !result.HasOwnProp(definition.name)
-                result.%definition.name% := []
-            result.%definition.name%.Push(value)
-        } else if (definition.action == "store_true") {
+            if !result.Has(definition.name)
+                result[definition.name] := []
+            result[definition.name].Push(value)
+        } 
+        else if (definition.action == "store_true") {
             ; Store boolean value
-            result.%definition.name% := value
-        } else {
+            result[definition.name] := value
+        } 
+        else {
             ; Default "store" action - simple assignment
-            result.%definition.name% := value
+            result[definition.name] := value
         }
     }
 
@@ -546,7 +553,7 @@ class ArgumentParser {
     _ApplyEnvironmentVariables(result) {
         for (dest, definition in this._definitions) {
             ; Skip if already set from CLI or no envVar defined
-            if result.HasOwnProp(dest) || definition.envVar == ""
+            if result.Has(dest) || definition.envVar == ""
                 continue
 
             ; Try to get value from environment
@@ -554,7 +561,7 @@ class ArgumentParser {
             if (envValue != "") {
                 ; Validate and store
                 validatedValue := definition.Validate(envValue)
-                result.%dest% := validatedValue
+                result[dest] := validatedValue
             }
         }
     }
@@ -567,7 +574,7 @@ class ArgumentParser {
     _ApplyConfigValues(result) {
         for (dest, definition in this._definitions) {
             ; Skip if already set
-            if result.HasOwnProp(dest)
+            if result.Has(dest)
                 continue
 
             ; Try to get value from config file
@@ -575,7 +582,7 @@ class ArgumentParser {
                 configValue := this._configValues[dest]
                 ; Validate and store
                 validatedValue := definition.Validate(configValue)
-                result.%dest% := validatedValue
+                result[dest] := validatedValue
             }
         }
     }
@@ -588,23 +595,23 @@ class ArgumentParser {
     _ApplyDefaults(result) {
         for (dest, definition in this._definitions) {
             ; Skip if already set
-            if (result.HasOwnProp(dest))
+            if (result.Has(dest))
                 continue
 
             ; For append actions with no values, always create empty array
             if (definition.action == "append") {
-                result.%dest% := []
+                result[dest] := []
             }
             else if (definition.defaultValue != "") {
                 ; Use default value (already validated during AddOption/AddFlag)
-                result.%dest% := definition.defaultValue
+                result[dest] := definition.defaultValue
             }
         }
 
         ; Also handle positionals with defaults
         for (definition in this._positionals) {
-            if (!result.HasOwnProp(definition.name) && (definition.defaultValue != ""))
-                result.%definition.name% := definition.defaultValue
+            if (!result.Has(definition.name) && (definition.defaultValue != ""))
+                result[definition.name] := definition.defaultValue
         }
     }
 
@@ -617,13 +624,13 @@ class ArgumentParser {
     _ValidateRequired(result) {
         ; Check required options/flags
         for (dest, definition in this._definitions) {
-            ValueError.ThrowIf(definition.required && !result.HasOwnProp(dest),
+            ValueError.ThrowIf(definition.required && !result.Has(dest),
                 "Required " definition._GetOptionString() " not provided", -5)
         }
 
         ; Check required positionals
         for (definition in this._positionals) {
-            ValueError.ThrowIf(definition.required && !result.HasOwnProp(definition.name),
+            ValueError.ThrowIf(definition.required && !result.Has(definition.name),
                 "Required argument '" definition.name "' not provided", -5)
         }
     }

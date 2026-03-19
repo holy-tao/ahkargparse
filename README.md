@@ -314,7 +314,7 @@ result := parser.Parse(args?)
 **Parameters:**
 - `args` (Array, optional): Array of strings to parse (default: `A_Args`)
 
-**Returns:** Object with named properties for each defined argument
+**Returns:** A Map of options to their values.
 
 **Throws:**
 - `ValueError`: For parsing errors (unless `exitOnError: true`)
